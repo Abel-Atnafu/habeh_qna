@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, Star, UtensilsCrossed, ImageIcon } from 'lucide-react';
+import { Calendar, Star, UtensilsCrossed, ImageIcon, ShoppingBag } from 'lucide-react';
 import {
   useAdminStats,
   useReservations,
@@ -63,7 +63,13 @@ export default function DashboardPage() {
       <h1 className="font-display text-3xl text-espresso mb-8">Dashboard</h1>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
+        <StatCard
+          icon={<ShoppingBag size={22} className="text-terracotta" />}
+          iconBg="bg-terracotta/10"
+          value={stats?.activeOrders ?? 0}
+          label="Active Orders"
+        />
         <StatCard
           icon={<Calendar size={22} className="text-terracotta" />}
           iconBg="bg-terracotta/10"

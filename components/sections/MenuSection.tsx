@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { Printer, Leaf } from 'lucide-react';
+import { Printer, Leaf, Coffee } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { useMenuItems } from '@/lib/queries';
 import { formatPrice, cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { MENU_CATEGORIES } from '@/types';
 import type { MenuItem } from '@/types';
 import { Jebena } from '@/lib/icons';
 import SkeletonCard from '@/components/ui/SkeletonCard';
+import AddToCartButton from '@/components/cart/AddToCartButton';
 
 interface MenuSectionProps {
   initialMenuItems?: MenuItem[];
@@ -26,69 +27,53 @@ function MenuItemCard({ item }: { item: MenuItem }) {
       exit={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
-        'menu-card bg-white rounded-card shadow-card lift',
-        'border-l-[3px] border-terracotta hover:border-gold',
-        'transition-all duration-200 overflow-hidden relative',
-        !item.available && 'opacity-60'
+        'menu-card group bg-white rounded-card shadow-card lift overflow-hidden relative flex flex-col',
+        'border border-espresso/5 hover:border-terracotta/40 transition-colors',
+        !item.available && 'opacity-60',
       )}
     >
-      {/* Image area */}
-      <div className="relative h-40 bg-cream-2 overflow-hidden">
+      {/* ── Image area ── */}
+      <div className="relative aspect-[4/3] bg-cream-2 overflow-hidden">
         {item.image_url ? (
           <img
             src={item.image_url}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-5xl opacity-20" aria-hidden="true">
-              🍽️
-            </span>
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cream-2 to-beige">
+            <Coffee size={56} strokeWidth={1.2} className="text-terracotta/40" aria-hidden="true" />
+          </div>
+        )}
+
+        {/* Price overlay */}
+        <div className="absolute top-3 right-3">
+          <span className="badge badge-price text-xs shadow-md">{formatPrice(item.price)}</span>
+        </div>
+
+        {/* Dietary badges (bottom-left over image) */}
+        {(item.is_fasting || item.is_veg || item.is_spicy) && (
+          <div className="absolute bottom-3 left-3 flex gap-1 flex-wrap">
+            {item.is_fasting && <span className="badge badge-fasting">{t('menu_badge_fasting')}</span>}
+            {item.is_veg && <span className="badge badge-veg">{t('menu_badge_veg')}</span>}
+            {item.is_spicy && <span className="badge badge-spicy">{t('menu_badge_spicy')}</span>}
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-4">
-        {/* Name + price */}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-medium text-espresso leading-snug">
-            {item.name}
-          </h3>
-          <span className="badge badge-price shrink-0 text-xs">
-            {formatPrice(item.price)}
-          </span>
-        </div>
-
-        {/* Description */}
+      {/* ── Content ── */}
+      <div className="p-4 flex-1 flex flex-col">
+        <h3 className="font-medium text-espresso leading-snug">{item.name}</h3>
         {item.description && (
-          <p className="text-xs text-espresso/60 leading-relaxed mt-1 line-clamp-2">
+          <p className="text-xs text-espresso/60 leading-relaxed mt-1.5 line-clamp-2">
             {item.description}
           </p>
         )}
-
-        {/* Dietary badges */}
-        {(item.is_fasting || item.is_veg || item.is_spicy) && (
-          <div className="flex gap-1 flex-wrap mt-2">
-            {item.is_fasting && (
-              <span className="badge badge-fasting">
-                {t('menu_badge_fasting')}
-              </span>
-            )}
-            {item.is_veg && (
-              <span className="badge badge-veg">
-                🌱 {t('menu_badge_veg')}
-              </span>
-            )}
-            {item.is_spicy && (
-              <span className="badge badge-spicy">
-                🌶️ {t('menu_badge_spicy')}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="mt-auto pt-3 flex items-center justify-between">
+          <span className="text-[11px] uppercase tracking-wider text-espresso/40">{item.category}</span>
+          <AddToCartButton item={item} />
+        </div>
       </div>
 
       {/* Unavailable overlay */}
@@ -111,7 +96,6 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: '-60px' });
 
-  // Fetch ALL items once; filter client-side for instant response
   const { data: allItems = [], isLoading } = useMenuItems({
     initialData: initialMenuItems,
   });
@@ -130,11 +114,7 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
   }, []);
 
   return (
-    <section
-      id="menu"
-      ref={sectionRef}
-      className="relative py-24 bg-cream-2"
-    >
+    <section id="menu" ref={sectionRef} className="relative py-20 md:py-28 bg-cream-2">
       {/* Giant Jebena watermark */}
       <div
         aria-hidden="true"
@@ -144,8 +124,8 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
       </div>
 
       <div className="relative">
-        {/* ── Section header ───────────────────────────────────────── */}
-        <div className="text-center mb-10 px-6">
+        {/* ── Section header ── */}
+        <div className="text-center mb-10 px-4 sm:px-6 lg:px-8">
           <motion.p
             className="eyebrow tracking-widest text-terracotta mb-3"
             initial={{ opacity: 0, y: 16 }}
@@ -164,11 +144,10 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
           </motion.h2>
         </div>
 
-        {/* ── Sticky filter bar ────────────────────────────────────── */}
+        {/* ── Sticky filter bar ── */}
         <div className="filter-bar sticky top-[72px] z-40 bg-cream-2/90 backdrop-blur-md py-4 mb-8 border-b border-espresso/5">
-          <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
-              {/* Category pills — horizontal scroll on small screens */}
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
                 {MENU_CATEGORIES.map((cat) => (
                   <button
@@ -179,7 +158,7 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
                       'rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0',
                       activeCategory === cat
                         ? 'bg-terracotta text-white shadow-md'
-                        : 'bg-cream text-espresso/70 hover:bg-terracotta/10 hover:text-espresso'
+                        : 'bg-cream text-espresso/70 hover:bg-terracotta/10 hover:text-espresso',
                     )}
                   >
                     {cat === 'All' ? t('menu_all') : cat}
@@ -187,9 +166,7 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
                 ))}
               </div>
 
-              {/* Filter toggles */}
               <div className="flex gap-2 shrink-0 items-center">
-                {/* Fasting toggle */}
                 <button
                   type="button"
                   onClick={() => setFastingOnly((v) => !v)}
@@ -198,14 +175,13 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
                     'flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all duration-200',
                     fastingOnly
                       ? 'bg-forest text-white shadow'
-                      : 'bg-forest/10 text-forest hover:bg-forest/20'
+                      : 'bg-forest/10 text-forest hover:bg-forest/20',
                   )}
                 >
                   <Leaf size={12} strokeWidth={2.5} />
                   {t('menu_fasting_toggle')}
                 </button>
 
-                {/* Veg toggle */}
                 <button
                   type="button"
                   onClick={() => setVegOnly((v) => !v)}
@@ -214,21 +190,19 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
                     'flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all duration-200',
                     vegOnly
                       ? 'bg-green-700 text-white shadow'
-                      : 'bg-green-700/10 text-green-700 hover:bg-green-700/20'
+                      : 'bg-green-700/10 text-green-700 hover:bg-green-700/20',
                   )}
                 >
-                  🌱 {t('menu_veg_toggle')}
+                  {t('menu_veg_toggle')}
                 </button>
 
-                {/* Print button */}
                 <button
                   type="button"
                   onClick={handlePrint}
                   className={cn(
-                    'btn flex items-center gap-2 text-xs rounded-full',
+                    'hidden sm:inline-flex btn items-center gap-2 text-xs rounded-full',
                     'text-coffee border border-coffee/30 bg-transparent',
                     'hover:bg-coffee/5 hover:border-coffee/60',
-                    'px-3 py-2'
                   )}
                   style={{ fontSize: '12px', padding: '8px 14px' }}
                 >
@@ -240,22 +214,18 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
           </div>
         </div>
 
-        {/* ── Menu grid ────────────────────────────────────────────── */}
-        <div className="max-w-6xl mx-auto px-6">
+        {/* ── Menu grid ── */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {isLoading ? (
-            <div className="menu-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+            <div className="menu-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               {Array.from({ length: 9 }).map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <span className="text-6xl mb-4" aria-hidden="true">
-                🔍
-              </span>
-              <p className="text-espresso/50 text-sm">
-                No items match your current filters.
-              </p>
+              <Coffee size={48} className="text-espresso/20 mb-4" aria-hidden="true" />
+              <p className="text-espresso/50 text-sm">No items match your current filters.</p>
               <button
                 type="button"
                 onClick={() => {
@@ -270,7 +240,7 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
             </div>
           ) : (
             <AnimatePresence mode="popLayout">
-              <div className="menu-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+              <div className="menu-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
                 {filteredItems.map((item) => (
                   <MenuItemCard key={item.id} item={item} />
                 ))}
@@ -280,9 +250,7 @@ export default function MenuSection({ initialMenuItems }: MenuSectionProps) {
 
           {/* VAT note */}
           {!isLoading && filteredItems.length > 0 && (
-            <p className="text-center text-xs text-espresso/40 mt-8">
-              {t('menu_vat_note')}
-            </p>
+            <p className="text-center text-xs text-espresso/40 mt-10">{t('menu_vat_note')}</p>
           )}
         </div>
       </div>

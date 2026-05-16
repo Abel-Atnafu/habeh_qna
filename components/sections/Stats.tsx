@@ -24,22 +24,12 @@ const STATS: StatConfig[] = [
 
 // ── Sub-component: individual stat card ──────────────────────────────────────
 
-interface StatCardProps extends StatConfig {
-  isLast: boolean;
-}
-
-function StatCard({ target, suffix, labelKey, duration, isLast }: StatCardProps) {
+function StatCard({ target, suffix, labelKey, duration }: StatConfig) {
   const { t }       = useI18n();
   const { count, ref } = useCountUp(target, duration);
 
   return (
-    <div
-      ref={ref}
-      className={[
-        'py-8 text-center',
-        !isLast ? 'border-r border-cream/10' : '',
-      ].join(' ')}
-    >
+    <div ref={ref} className="py-8 text-center">
       {/* Animated number + suffix */}
       <div className="flex items-baseline justify-center gap-0.5">
         <span
@@ -76,15 +66,12 @@ export default function Stats() {
       {/* Top accent strip */}
       <div className="accent-strip" aria-hidden="true" />
 
-      {/* Stats grid */}
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4">
-          {STATS.map((stat, i) => (
-            <StatCard
-              key={stat.labelKey}
-              {...stat}
-              isLast={i === STATS.length - 1}
-            />
+      {/* Stats grid — divide-x handles dividers consistently across both
+          breakpoints (no missing-border-on-last-row asymmetry) */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-cream/10">
+          {STATS.map((stat) => (
+            <StatCard key={stat.labelKey} {...stat} />
           ))}
         </div>
       </div>

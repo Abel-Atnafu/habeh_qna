@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { MenuItem, GalleryItem, Testimonial, Reservation, Settings, DailySpecial, Event } from '@/types';
+import { MenuItem, GalleryItem, Testimonial, Reservation, Settings, DailySpecial, Event, Order, OrderItem, OrderStatus } from '@/types';
 
 const sb = () => getSupabaseClient();
 
@@ -362,18 +362,74 @@ export function useAdminStats() {
     queryKey: ['admin_stats'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      const [reservations, reviews, menuItems, gallery] = await Promise.all([
+      const [reservations, reviews, menuItems, gallery, pendingOrders] = await Promise.all([
         sb().from('reservations').select('id', { count: 'exact' }).eq('date', today),
         sb().from('testimonials').select('id', { count: 'exact' }).eq('visible', false),
         sb().from('menu_items').select('id', { count: 'exact' }).eq('available', true),
         sb().from('gallery').select('id', { count: 'exact' }),
+        sb()
+          .from('orders')
+          .select('id', { count: 'exact' })
+          .eq('payment_status', 'paid')
+          .in('status', ['received', 'preparing']),
       ]);
       return {
         todayReservations: reservations.count ?? 0,
         pendingReviews: reviews.count ?? 0,
         activeMenuItems: menuItems.count ?? 0,
         galleryItems: gallery.count ?? 0,
+        activeOrders: pendingOrders.count ?? 0,
       };
+    },
+  });
+}
+
+// ─── ORDERS ──────────────────────────────────────────────────────────────────
+
+export function useOrders(filters?: { status?: OrderStatus | 'all' }) {
+  return useQuery({
+    queryKey: ['orders', filters],
+    queryFn: async () => {
+      let q = sb()
+        .from('orders')
+        .select('*')
+        .eq('payment_status', 'paid')
+        .order('created_at', { ascending: false });
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Order[];
+    },
+  });
+}
+
+export function useOrderItems(orderId: string | null) {
+  return useQuery({
+    queryKey: ['order_items', orderId],
+    queryFn: async () => {
+      if (!orderId) return [] as OrderItem[];
+      const { data, error } = await sb()
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as OrderItem[];
+    },
+    enabled: !!orderId,
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
+      const { error } = await sb().from('orders').update({ status }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['admin_stats'] });
     },
   });
 }

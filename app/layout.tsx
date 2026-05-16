@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { Playfair_Display, DM_Sans, Noto_Sans_Ethiopic } from 'next/font/google';
 import './globals.css';
 import QueryProvider from '@/providers/QueryProvider';
+import { CartProvider } from '@/providers/CartProvider';
 import { I18nProvider } from '@/lib/i18n';
 import { Toaster } from 'sonner';
+import CartFab from '@/components/cart/CartFab';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -50,8 +52,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <QueryProvider>
           <I18nProvider>
-            {children}
-            <Toaster richColors position="bottom-right" />
+            <CartProvider>
+              {children}
+              <CartFab />
+              <Toaster richColors position="bottom-right" />
+            </CartProvider>
           </I18nProvider>
         </QueryProvider>
       </body>
