@@ -11,10 +11,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const supabase = getSupabaseClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace('/admin/login');
-      else setChecking(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!session) router.replace('/admin/login');
+        else setChecking(false);
+      })
+      .catch(() => router.replace('/admin/login'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
