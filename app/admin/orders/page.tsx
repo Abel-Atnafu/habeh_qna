@@ -1,13 +1,40 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ShoppingBag, Receipt, Clock, Truck, Check, ChefHat, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
+import {
+  ShoppingBag,
+  Receipt,
+  Clock,
+  Truck,
+  Check,
+  ChefHat,
+  RefreshCw,
+  ShieldCheck,
+  ShieldOff,
+  FileImage,
+  ExternalLink,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { useOrders, useOrderItems, useUpdateOrderStatus } from '@/lib/queries';
+import {
+  useOrders,
+  useOrderItems,
+  useUpdateOrderStatus,
+  useVerifyPayment,
+  useRejectPayment,
+} from '@/lib/queries';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { formatPrice, cn } from '@/lib/utils';
-import type { Order, OrderStatus } from '@/types';
+import type { Order, OrderStatus, PaymentStatus } from '@/types';
+
+type Tab = 'pending_review' | 'paid' | 'failed';
+
+const TABS: { value: Tab; label: string; description: string }[] = [
+  { value: 'pending_review', label: 'Pending review', description: 'Customers awaiting payment verification' },
+  { value: 'paid', label: 'Paid', description: 'Verified orders ready to fulfil' },
+  { value: 'failed', label: 'Rejected', description: 'Payments you marked invalid' },
+];
 
 const STATUSES: { value: OrderStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -32,11 +59,25 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
+const PAY_STYLES: Record<PaymentStatus, string> = {
+  pending_review: 'bg-amber-100 text-amber-700',
+  paid: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+  cancelled: 'bg-espresso/10 text-espresso/60',
+};
+
 export default function OrdersPage() {
+  const [tab, setTab] = useState<Tab>('pending_review');
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data: orders = [], isLoading, refetch } = useOrders({ status: filter });
+
+  const { data: orders = [], isLoading, refetch } = useOrders({
+    paymentStatus: tab,
+    status: tab === 'paid' ? filter : 'all',
+  });
   const updateStatus = useUpdateOrderStatus();
+  const verifyPayment = useVerifyPayment();
+  const rejectPayment = useRejectPayment();
   const qc = useQueryClient();
 
   const selected = useMemo<Order | null>(
@@ -45,15 +86,13 @@ export default function OrdersPage() {
   );
   const { data: orderItems = [] } = useOrderItems(selectedId);
 
-  // ── Realtime: invalidate the query whenever the orders table changes ──
+  // Realtime: invalidate on any orders row change
   useEffect(() => {
     const sb = getSupabaseClient();
     const channel = sb
       .channel('orders-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => qc.invalidateQueries({ queryKey: ['orders'] }),
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () =>
+        qc.invalidateQueries({ queryKey: ['orders'] }),
       )
       .subscribe();
     return () => {
@@ -82,6 +121,27 @@ export default function OrdersPage() {
     }
   }
 
+  async function handleVerify(o: Order) {
+    try {
+      await verifyPayment.mutateAsync(o.id);
+      toast.success(`Order #${o.order_number} payment verified`);
+    } catch (err: unknown) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  async function handleReject(o: Order) {
+    if (!confirm(`Reject payment for order #${o.order_number}? The customer will see "Payment could not be verified".`)) {
+      return;
+    }
+    try {
+      await rejectPayment.mutateAsync(o.id);
+      toast.success(`Order #${o.order_number} payment rejected`);
+    } catch (err: unknown) {
+      toast.error((err as Error).message);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -99,16 +159,19 @@ export default function OrdersPage() {
         </button>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        {STATUSES.map((s) => (
+      {/* Payment-status tabs */}
+      <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+        {TABS.map((s) => (
           <button
             key={s.value}
             type="button"
-            onClick={() => setFilter(s.value)}
+            onClick={() => {
+              setTab(s.value);
+              setSelectedId(null);
+            }}
             className={cn(
               'rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all',
-              filter === s.value
+              tab === s.value
                 ? 'bg-espresso text-cream'
                 : 'bg-white text-espresso/60 border border-espresso/10 hover:border-espresso/30',
             )}
@@ -117,8 +180,32 @@ export default function OrdersPage() {
           </button>
         ))}
       </div>
+      <p className="text-xs text-espresso/40 mb-5">
+        {TABS.find((s) => s.value === tab)?.description}
+      </p>
 
-      <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+      {/* Fulfilment status sub-filter only meaningful for paid orders */}
+      {tab === 'paid' && (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {STATUSES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => setFilter(s.value)}
+              className={cn(
+                'rounded-full px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-all',
+                filter === s.value
+                  ? 'bg-terracotta text-white'
+                  : 'bg-white text-espresso/60 border border-espresso/10 hover:border-espresso/30',
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-[1fr_400px] gap-6">
         {/* List */}
         <div className="bg-white rounded-2xl shadow-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -127,7 +214,7 @@ export default function OrdersPage() {
                 <tr className="border-b border-espresso/5 bg-cream-2/60">
                   <th className="text-left px-4 py-3 text-espresso/50 font-medium">Order</th>
                   <th className="text-left px-4 py-3 text-espresso/50 font-medium">Customer</th>
-                  <th className="text-left px-4 py-3 text-espresso/50 font-medium">Type</th>
+                  <th className="text-left px-4 py-3 text-espresso/50 font-medium">Method</th>
                   <th className="text-right px-4 py-3 text-espresso/50 font-medium">Total</th>
                   <th className="text-center px-4 py-3 text-espresso/50 font-medium">Status</th>
                   <th className="text-right px-4 py-3 text-espresso/50 font-medium">Action</th>
@@ -144,11 +231,12 @@ export default function OrdersPage() {
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-espresso/40">
                       <Receipt size={32} className="mx-auto mb-3 opacity-50" />
-                      No paid orders {filter !== 'all' ? `with status "${filter}"` : 'yet'}.
+                      No orders in this view.
                     </td>
                   </tr>
                 ) : (
                   orders.map((o) => {
+                    const isPending = o.payment_status === 'pending_review';
                     const next = NEXT_STATUS[o.status];
                     return (
                       <tr
@@ -173,22 +261,63 @@ export default function OrdersPage() {
                           <div className="text-espresso">{o.customer_name}</div>
                           <div className="text-xs text-espresso/40">{o.phone}</div>
                         </td>
-                        <td className="px-4 py-3 capitalize text-espresso/70">{o.type}</td>
+                        <td className="px-4 py-3 text-espresso/70">
+                          <div className="capitalize">
+                            {o.payment_method === 'cbe' ? 'CBE' : o.payment_method ?? '—'}
+                          </div>
+                          {o.payment_reference && (
+                            <div className="text-[10px] text-espresso/40 font-mono">
+                              {o.payment_reference}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right font-medium text-espresso tabular-nums">
                           {formatPrice(o.total)}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span
-                            className={cn(
-                              'inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize',
-                              STATUS_STYLES[o.status],
-                            )}
-                          >
-                            {o.status}
-                          </span>
+                          {isPending ? (
+                            <span
+                              className={cn(
+                                'inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                PAY_STYLES.pending_review,
+                              )}
+                            >
+                              Pending review
+                            </span>
+                          ) : (
+                            <span
+                              className={cn(
+                                'inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize',
+                                STATUS_STYLES[o.status],
+                              )}
+                            >
+                              {o.status}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          {next ? (
+                          {isPending ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleVerify(o)}
+                                disabled={verifyPayment.isPending}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60"
+                              >
+                                <ShieldCheck size={12} />
+                                Verify
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReject(o)}
+                                disabled={rejectPayment.isPending}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-60"
+                              >
+                                <ShieldOff size={12} />
+                                Reject
+                              </button>
+                            </div>
+                          ) : next ? (
                             <button
                               type="button"
                               onClick={() => handleAdvance(o)}
@@ -226,10 +355,12 @@ export default function OrdersPage() {
                 <span
                   className={cn(
                     'inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize',
-                    STATUS_STYLES[selected.status],
+                    selected.payment_status === 'pending_review'
+                      ? PAY_STYLES.pending_review
+                      : STATUS_STYLES[selected.status],
                   )}
                 >
-                  {selected.status}
+                  {selected.payment_status === 'pending_review' ? 'Pending review' : selected.status}
                 </span>
               </div>
 
@@ -243,6 +374,51 @@ export default function OrdersPage() {
                 )}
                 {selected.notes && <Row label="Notes" value={selected.notes} />}
               </dl>
+
+              {/* Payment block */}
+              <div className="text-sm space-y-2 mb-4 pb-4 border-b border-espresso/5">
+                <Row
+                  label="Method"
+                  value={selected.payment_method === 'cbe' ? 'CBE' : selected.payment_method ?? '—'}
+                />
+                {selected.payment_reference && (
+                  <Row label="Reference" value={selected.payment_reference} mono />
+                )}
+
+                {selected.payment_proof_url && (
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="inline-flex items-center gap-1 text-xs text-espresso/50">
+                        <FileImage size={12} />
+                        Screenshot
+                      </span>
+                      <a
+                        href={selected.payment_proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-terracotta hover:text-terracotta-dark transition-colors"
+                      >
+                        Open full size
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                    <a
+                      href={selected.payment_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative block w-full h-56 rounded-xl overflow-hidden bg-cream-2"
+                    >
+                      <Image
+                        src={selected.payment_proof_url}
+                        alt={`Payment proof for order #${selected.order_number}`}
+                        fill
+                        className="object-contain"
+                        sizes="400px"
+                      />
+                    </a>
+                  </div>
+                )}
+              </div>
 
               <ul className="space-y-2 text-sm mb-4">
                 {orderItems.map((line) => (
@@ -263,15 +439,40 @@ export default function OrdersPage() {
                 </span>
               </div>
 
-              {selected.status !== 'completed' && selected.status !== 'cancelled' && (
-                <button
-                  type="button"
-                  onClick={() => handleCancel(selected)}
-                  className="w-full mt-4 text-xs text-red-500 hover:text-red-600 underline underline-offset-2"
-                >
-                  Cancel order
-                </button>
+              {selected.payment_status === 'pending_review' && (
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => handleVerify(selected)}
+                    disabled={verifyPayment.isPending}
+                    className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60"
+                  >
+                    <ShieldCheck size={14} />
+                    Verify payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleReject(selected)}
+                    disabled={rejectPayment.isPending}
+                    className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-60"
+                  >
+                    <ShieldOff size={14} />
+                    Reject
+                  </button>
+                </div>
               )}
+
+              {selected.payment_status === 'paid' &&
+                selected.status !== 'completed' &&
+                selected.status !== 'cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(selected)}
+                    className="w-full mt-4 text-xs text-red-500 hover:text-red-600 underline underline-offset-2"
+                  >
+                    Cancel order
+                  </button>
+                )}
             </>
           )}
         </aside>
@@ -280,11 +481,18 @@ export default function OrdersPage() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-espresso/50 shrink-0">{label}</dt>
-      <dd className="font-medium text-espresso text-right capitalize">{value}</dd>
+      <dd
+        className={cn(
+          'font-medium text-espresso text-right break-all',
+          mono ? 'font-mono text-xs' : 'capitalize',
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

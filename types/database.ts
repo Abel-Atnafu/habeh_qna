@@ -192,6 +192,9 @@ export type Database = {
           notes: string | null;
           order_number: number;
           paid_at: string | null;
+          payment_method: string | null;
+          payment_proof_url: string | null;
+          payment_reference: string | null;
           payment_status: string;
           phone: string | null;
           status: string | null;
@@ -210,6 +213,9 @@ export type Database = {
           id?: string;
           notes?: string | null;
           paid_at?: string | null;
+          payment_method?: string | null;
+          payment_proof_url?: string | null;
+          payment_reference?: string | null;
           payment_status?: string;
           phone?: string | null;
           status?: string | null;
@@ -228,6 +234,9 @@ export type Database = {
           id?: string;
           notes?: string | null;
           paid_at?: string | null;
+          payment_method?: string | null;
+          payment_proof_url?: string | null;
+          payment_reference?: string | null;
           payment_status?: string;
           phone?: string | null;
           status?: string | null;
@@ -278,24 +287,36 @@ export type Database = {
         Row: {
           announcement_active: boolean | null;
           announcement_text: string | null;
+          cbe_name: string | null;
+          cbe_number: string | null;
           id: string;
           reservations_open: boolean | null;
+          telebirr_name: string | null;
+          telebirr_number: string | null;
           vat_note: string | null;
           whatsapp: string | null;
         };
         Insert: {
           announcement_active?: boolean | null;
           announcement_text?: string | null;
+          cbe_name?: string | null;
+          cbe_number?: string | null;
           id?: string;
           reservations_open?: boolean | null;
+          telebirr_name?: string | null;
+          telebirr_number?: string | null;
           vat_note?: string | null;
           whatsapp?: string | null;
         };
         Update: {
           announcement_active?: boolean | null;
           announcement_text?: string | null;
+          cbe_name?: string | null;
+          cbe_number?: string | null;
           id?: string;
           reservations_open?: boolean | null;
+          telebirr_name?: string | null;
+          telebirr_number?: string | null;
           vat_note?: string | null;
           whatsapp?: string | null;
         };

@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { Check, Clock, XCircle, Receipt } from 'lucide-react';
+import Image from 'next/image';
+import { Check, Clock, XCircle, Receipt, FileImage } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPrice } from '@/lib/utils';
 import type { Order, OrderItem } from '@/types';
-import OrderRefresher from './OrderRefresher';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: { tx_ref: string };
+  params: { id: string };
 }
 
 export default async function OrderConfirmationPage({ params }: PageProps) {
@@ -17,7 +17,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
   const { data: orderRow } = await supabase
     .from('orders')
     .select('*')
-    .eq('tx_ref', params.tx_ref)
+    .eq('id', params.id)
     .maybeSingle();
 
   const order = orderRow as Order | null;
@@ -46,14 +46,11 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
   const items = (itemRows ?? []) as OrderItem[];
 
   const isPaid = order.payment_status === 'paid';
-  const isPending = order.payment_status === 'pending';
+  const isPending = order.payment_status === 'pending_review';
   const isFailed = order.payment_status === 'failed';
 
   return (
     <main className="min-h-screen bg-cream-2 pt-10 pb-20">
-      {/* Auto-refresh while the webhook settles the payment */}
-      {isPending && <OrderRefresher txRef={params.tx_ref} />}
-
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-2xl shadow-card overflow-hidden">
           {/* Status banner */}
@@ -79,15 +76,15 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
               {isPaid
                 ? 'Thank you for your order!'
                 : isFailed
-                ? 'Payment was not completed'
-                : 'Awaiting payment confirmation…'}
+                ? 'Payment could not be verified'
+                : 'Payment under review'}
             </h1>
             <p className="opacity-90 text-sm mt-2">
               {isPaid
-                ? "Payment confirmed — we're preparing your order."
+                ? "Payment verified — we're preparing your order."
                 : isFailed
-                ? 'Please try again from the cart.'
-                : 'This page will update automatically.'}
+                ? 'Please contact us if you believe this is a mistake.'
+                : 'We received your screenshot and will confirm your transfer shortly.'}
             </p>
           </div>
 
@@ -116,6 +113,22 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
                   <dd className="font-medium text-espresso text-right">{order.delivery_address}</dd>
                 </>
               )}
+              {order.payment_method && (
+                <>
+                  <dt className="text-espresso/50">Paid via</dt>
+                  <dd className="font-medium text-espresso text-right capitalize">
+                    {order.payment_method === 'cbe' ? 'CBE' : 'Telebirr'}
+                  </dd>
+                </>
+              )}
+              {order.payment_reference && (
+                <>
+                  <dt className="text-espresso/50">Reference</dt>
+                  <dd className="font-mono text-xs text-espresso text-right break-all">
+                    {order.payment_reference}
+                  </dd>
+                </>
+              )}
             </dl>
 
             <div className="border-t border-espresso/10 pt-4">
@@ -140,6 +153,24 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
               </div>
             </div>
 
+            {order.payment_proof_url && (
+              <div className="mt-6 pt-6 border-t border-espresso/10">
+                <p className="inline-flex items-center gap-2 text-xs text-espresso/50 mb-2">
+                  <FileImage size={14} />
+                  Your submitted screenshot
+                </p>
+                <div className="relative w-full h-48 rounded-xl overflow-hidden bg-cream-2">
+                  <Image
+                    src={order.payment_proof_url}
+                    alt="Payment screenshot"
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 600px"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               {isFailed && (
                 <Link href="/cart" className="btn btn-primary flex-1 justify-center">
@@ -152,6 +183,12 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
             </div>
           </div>
         </div>
+
+        {isPending && (
+          <p className="text-center text-xs text-espresso/50 mt-4">
+            You can safely close this page — we&rsquo;ll reach out at {order.phone} once your payment is confirmed.
+          </p>
+        )}
       </div>
     </main>
   );

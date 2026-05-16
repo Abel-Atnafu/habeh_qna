@@ -50,6 +50,10 @@ export interface Settings {
   announcement_active: boolean;
   vat_note: string | null;
   reservations_open: boolean;
+  telebirr_name: string | null;
+  telebirr_number: string | null;
+  cbe_name: string | null;
+  cbe_number: string | null;
 }
 
 export interface DailySpecial {
@@ -76,12 +80,13 @@ export interface Event {
 
 export type OrderType = 'pickup' | 'delivery' | 'dine-in';
 export type OrderStatus = 'received' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
+// Manual-payment workflow: customer submits proof → pending_review → admin verifies (paid) or rejects (failed)
+export type PaymentStatus = 'pending_review' | 'paid' | 'failed' | 'cancelled';
+export type PaymentMethod = 'telebirr' | 'cbe';
 
 export interface Order {
   id: string;
   order_number: number;
-  tx_ref: string | null;
   customer_name: string | null;
   phone: string | null;
   email: string | null;
@@ -93,7 +98,9 @@ export interface Order {
   currency: string;
   status: OrderStatus;
   payment_status: PaymentStatus;
-  chapa_ref_id: string | null;
+  payment_method: PaymentMethod | null;
+  payment_reference: string | null;
+  payment_proof_url: string | null;
   paid_at: string | null;
   created_at: string;
 }
