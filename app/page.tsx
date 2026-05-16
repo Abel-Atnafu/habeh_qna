@@ -5,6 +5,7 @@ import Navbar from '@/components/sections/Navbar';
 import Hero from '@/components/sections/Hero';
 import Stats from '@/components/sections/Stats';
 import About from '@/components/sections/About';
+import StoryVideo from '@/components/sections/StoryVideo';
 import DailySpecials from '@/components/sections/DailySpecials';
 import MenuSection from '@/components/sections/MenuSection';
 import EventsSection from '@/components/sections/EventsSection';
@@ -64,6 +65,7 @@ export default async function HomePage() {
         <Hero />
         <Stats />
         <About />
+        <StoryVideo />
         {specials.length > 0 && <DailySpecials initialSpecials={specials} />}
         <MenuSection initialMenuItems={menuItems} />
         {events.length > 0 && <EventsSection initialEvents={events} />}

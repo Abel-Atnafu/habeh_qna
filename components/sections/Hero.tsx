@@ -6,12 +6,16 @@ import { ArrowRight, ShoppingBag } from 'lucide-react';
 import { Jebena } from '@/lib/icons';
 import { useI18n } from '@/lib/i18n';
 
-// Royalty-free Pexels CDN — coffee being poured (loops cleanly)
-const VIDEO_MP4 =
-  'https://videos.pexels.com/video-files/2098989/2098989-uhd_2560_1440_30fps.mp4';
-// Poster image — instant first paint while the video downloads
+// Cafe-specific ambient loop: an espresso machine pulling a fresh shot.
+// (Pexels #5101681 "Fresh Espresso Shot" by Gustavo Fring — CC0.)
+// The component degrades gracefully to the poster if the video can't load.
+const VIDEO_SOURCES = [
+  { src: 'https://videos.pexels.com/video-files/5101681/5101681-hd_1920_1080_30fps.mp4', type: 'video/mp4' },
+  { src: 'https://videos.pexels.com/video-files/5101681/5101681-uhd_2560_1440_30fps.mp4', type: 'video/mp4' },
+];
+// Espresso machine + crema, dark and moody — works as the still hero too.
 const POSTER =
-  'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=2400&q=80';
+  'https://images.unsplash.com/photo-1610632380989-680fe40816c6?auto=format&fit=crop&w=2400&q=80';
 
 const containerVariants = {
   hidden: {},
@@ -33,6 +37,7 @@ export default function Hero() {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const [isMobile, setIsMobile] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
 
   // Skip the video on small viewports to save mobile data
   useEffect(() => {
@@ -43,7 +48,7 @@ export default function Hero() {
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  const showVideo = !reducedMotion && !isMobile;
+  const showVideo = !reducedMotion && !isMobile && !videoFailed;
 
   return (
     <section
@@ -51,9 +56,11 @@ export default function Hero() {
       className="relative min-h-screen overflow-hidden"
       aria-label="Hero — Yeroo Coffee"
     >
-      {/* ── Background: poster always, video on top when allowed ── */}
+      {/* ── Background poster ── always loaded, slow zooms when video is absent ── */}
       <div
-        className="absolute inset-0 bg-espresso bg-cover bg-center"
+        className={`absolute inset-0 bg-espresso bg-cover bg-center ${
+          showVideo ? '' : 'animate-hero-zoom'
+        }`}
         style={{ backgroundImage: `url(${POSTER})` }}
         aria-hidden="true"
       />
@@ -67,8 +74,11 @@ export default function Hero() {
           preload="metadata"
           poster={POSTER}
           aria-hidden="true"
+          onError={() => setVideoFailed(true)}
         >
-          <source src={VIDEO_MP4} type="video/mp4" />
+          {VIDEO_SOURCES.map((s) => (
+            <source key={s.src} src={s.src} type={s.type} />
+          ))}
         </video>
       )}
 
@@ -172,3 +182,4 @@ export default function Hero() {
     </section>
   );
 }
+

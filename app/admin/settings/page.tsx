@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Save, MessageCircle, Bell, PhoneCall } from 'lucide-react';
+import { Save, MessageCircle, Bell, PhoneCall, Smartphone, Landmark } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSettings, useUpdateSettings } from '@/lib/queries';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,10 @@ const settingsSchema = z.object({
   announcement_active:  z.boolean(),
   vat_note:             z.string().optional(),
   reservations_open:    z.boolean(),
+  telebirr_name:        z.string().optional(),
+  telebirr_number:      z.string().optional(),
+  cbe_name:             z.string().optional(),
+  cbe_number:           z.string().optional(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -73,6 +77,10 @@ export default function SettingsPage() {
       announcement_active: false,
       vat_note:            '',
       reservations_open:   true,
+      telebirr_name:       '',
+      telebirr_number:     '',
+      cbe_name:            '',
+      cbe_number:          '',
     },
   });
 
@@ -85,6 +93,10 @@ export default function SettingsPage() {
         announcement_active: settings.announcement_active ?? false,
         vat_note:            settings.vat_note            ?? '',
         reservations_open:   settings.reservations_open   ?? true,
+        telebirr_name:       settings.telebirr_name       ?? '',
+        telebirr_number:     settings.telebirr_number     ?? '',
+        cbe_name:            settings.cbe_name            ?? '',
+        cbe_number:          settings.cbe_number          ?? '',
       });
     }
   }, [settings, reset]);
@@ -100,6 +112,10 @@ export default function SettingsPage() {
         announcement_active: values.announcement_active,
         vat_note:            values.vat_note            || null,
         reservations_open:   values.reservations_open,
+        telebirr_name:       values.telebirr_name       || null,
+        telebirr_number:     values.telebirr_number     || null,
+        cbe_name:            values.cbe_name            || null,
+        cbe_number:          values.cbe_number          || null,
       });
       toast.success('Settings saved successfully');
       reset(values); // clear dirty state
@@ -222,6 +238,64 @@ export default function SettingsPage() {
           <p className="text-xs text-espresso/40 -mt-2">
             When disabled, the reservation form on the website will be hidden.
           </p>
+        </section>
+
+        {/* Payment accounts */}
+        <section className="bg-white rounded-2xl shadow-card p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-terracotta/10 flex items-center justify-center">
+              <Smartphone size={16} className="text-terracotta" />
+            </div>
+            <h2 className="font-semibold text-espresso">Payment accounts</h2>
+          </div>
+          <p className="text-xs text-espresso/50 -mt-2">
+            Shown to customers at checkout. They&rsquo;ll transfer the total to one of these accounts and
+            upload a screenshot for you to verify.
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>
+                <Smartphone size={13} className="inline mr-1 text-espresso/50" />
+                Telebirr — account name
+              </label>
+              <input
+                {...register('telebirr_name')}
+                className={inputClass}
+                placeholder="e.g. Yeroo Coffee PLC"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Telebirr — phone number</label>
+              <input
+                {...register('telebirr_number')}
+                className={inputClass}
+                placeholder="e.g. 0912345678"
+              />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>
+                <Landmark size={13} className="inline mr-1 text-espresso/50" />
+                CBE — account name
+              </label>
+              <input
+                {...register('cbe_name')}
+                className={inputClass}
+                placeholder="e.g. Yeroo Coffee PLC"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>CBE — account number</label>
+              <input
+                {...register('cbe_number')}
+                className={inputClass}
+                placeholder="e.g. 1000123456789"
+              />
+            </div>
+          </div>
         </section>
 
         {/* Save button (bottom, for scrolled-down convenience) */}
