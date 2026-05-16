@@ -389,6 +389,25 @@ export function useAdminStats() {
   });
 }
 
+export function useOrderCounts() {
+  return useQuery({
+    queryKey: ['order_counts'],
+    queryFn: async () => {
+      const [pendingReview, paid, failed] = await Promise.all([
+        sb().from('orders').select('id', { count: 'exact', head: true }).eq('payment_status', 'pending_review'),
+        sb().from('orders').select('id', { count: 'exact', head: true }).eq('payment_status', 'paid'),
+        sb().from('orders').select('id', { count: 'exact', head: true }).eq('payment_status', 'failed'),
+      ]);
+      return {
+        pending_review: pendingReview.count ?? 0,
+        paid: paid.count ?? 0,
+        failed: failed.count ?? 0,
+      };
+    },
+    refetchInterval: 30_000,
+  });
+}
+
 // ─── ORDERS ──────────────────────────────────────────────────────────────────
 
 export function useOrders(filters?: {
@@ -426,6 +445,7 @@ export function useVerifyPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] });
       qc.invalidateQueries({ queryKey: ['admin_stats'] });
+      qc.invalidateQueries({ queryKey: ['order_counts'] });
     },
   });
 }
@@ -443,6 +463,7 @@ export function useRejectPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] });
       qc.invalidateQueries({ queryKey: ['admin_stats'] });
+      qc.invalidateQueries({ queryKey: ['order_counts'] });
     },
   });
 }

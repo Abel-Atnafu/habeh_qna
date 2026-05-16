@@ -14,6 +14,10 @@ import {
   ShieldOff,
   FileImage,
   ExternalLink,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,12 +27,14 @@ import {
   useUpdateOrderStatus,
   useVerifyPayment,
   useRejectPayment,
+  useOrderCounts,
 } from '@/lib/queries';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { formatPrice, cn } from '@/lib/utils';
 import type { Order, OrderStatus, PaymentStatus } from '@/types';
 
 type Tab = 'pending_review' | 'paid' | 'failed';
+type SortCol = 'date' | 'total';
 
 const TABS: { value: Tab; label: string; description: string }[] = [
   { value: 'pending_review', label: 'Pending review', description: 'Customers awaiting payment verification' },
@@ -66,15 +72,30 @@ const PAY_STYLES: Record<PaymentStatus, string> = {
   cancelled: 'bg-espresso/10 text-espresso/60',
 };
 
+function formatOrderTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return isToday ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${time}`;
+}
+
 export default function OrdersPage() {
   const [tab, setTab] = useState<Tab>('pending_review');
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const { data: orders = [], isLoading, refetch } = useOrders({
     paymentStatus: tab,
     status: tab === 'paid' ? filter : 'all',
   });
+  const { data: counts } = useOrderCounts();
   const updateStatus = useUpdateOrderStatus();
   const verifyPayment = useVerifyPayment();
   const rejectPayment = useRejectPayment();
@@ -86,14 +107,54 @@ export default function OrdersPage() {
   );
   const { data: orderItems = [] } = useOrderItems(selectedId);
 
+  const displayOrders = useMemo(() => {
+    let list = orders;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (o) =>
+          o.customer_name?.toLowerCase().includes(q) ||
+          o.phone?.includes(q) ||
+          String(o.order_number).includes(q),
+      );
+    }
+    if (sortCol) {
+      list = [...list].sort((a, b) => {
+        const diff =
+          sortCol === 'date'
+            ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            : a.total - b.total;
+        return sortDir === 'asc' ? diff : -diff;
+      });
+    }
+    return list;
+  }, [orders, search, sortCol, sortDir]);
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('desc');
+    }
+  }
+
+  function SortIcon({ col }: { col: SortCol }) {
+    if (sortCol !== col) return <ArrowUpDown size={11} className="text-espresso/30" />;
+    return sortDir === 'asc'
+      ? <ChevronUp size={11} className="text-terracotta" />
+      : <ChevronDown size={11} className="text-terracotta" />;
+  }
+
   // Realtime: invalidate on any orders row change
   useEffect(() => {
     const sb = getSupabaseClient();
     const channel = sb
       .channel('orders-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () =>
-        qc.invalidateQueries({ queryKey: ['orders'] }),
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        qc.invalidateQueries({ queryKey: ['orders'] });
+        qc.invalidateQueries({ queryKey: ['order_counts'] });
+      })
       .subscribe();
     return () => {
       sb.removeChannel(channel);
@@ -168,15 +229,26 @@ export default function OrdersPage() {
             onClick={() => {
               setTab(s.value);
               setSelectedId(null);
+              setFilter('all');
             }}
             className={cn(
-              'rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all',
+              'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all',
               tab === s.value
                 ? 'bg-espresso text-cream'
                 : 'bg-white text-espresso/60 border border-espresso/10 hover:border-espresso/30',
             )}
           >
             {s.label}
+            {counts !== undefined && (
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center rounded-full text-[10px] font-bold min-w-[16px] h-4 px-1',
+                  tab === s.value ? 'bg-cream/20 text-cream' : 'bg-espresso/10 text-espresso/60',
+                )}
+              >
+                {counts[s.value]}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -186,7 +258,7 @@ export default function OrdersPage() {
 
       {/* Fulfilment status sub-filter only meaningful for paid orders */}
       {tab === 'paid' && (
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
           {STATUSES.map((s) => (
             <button
               key={s.value}
@@ -205,6 +277,18 @@ export default function OrdersPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-espresso/40 pointer-events-none" />
+        <input
+          type="search"
+          placeholder="Search by name, phone, or order #…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-8 pr-4 py-2 text-sm rounded-xl border border-espresso/10 bg-white focus:outline-none focus:ring-2 focus:ring-terracotta/30 placeholder:text-espresso/30"
+        />
+      </div>
+
       <div className="grid lg:grid-cols-[1fr_400px] gap-6">
         {/* List */}
         <div className="bg-white rounded-2xl shadow-card overflow-hidden">
@@ -212,10 +296,28 @@ export default function OrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-espresso/5 bg-cream-2/60">
-                  <th className="text-left px-4 py-3 text-espresso/50 font-medium">Order</th>
+                  <th className="text-left px-4 py-3 text-espresso/50 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('date')}
+                      className="inline-flex items-center gap-1 hover:text-espresso transition-colors"
+                    >
+                      Order
+                      <SortIcon col="date" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 text-espresso/50 font-medium">Customer</th>
                   <th className="text-left px-4 py-3 text-espresso/50 font-medium">Method</th>
-                  <th className="text-right px-4 py-3 text-espresso/50 font-medium">Total</th>
+                  <th className="text-right px-4 py-3 text-espresso/50 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('total')}
+                      className="inline-flex items-center gap-1 hover:text-espresso transition-colors ml-auto"
+                    >
+                      <SortIcon col="total" />
+                      Total
+                    </button>
+                  </th>
                   <th className="text-center px-4 py-3 text-espresso/50 font-medium">Status</th>
                   <th className="text-right px-4 py-3 text-espresso/50 font-medium">Action</th>
                 </tr>
@@ -234,8 +336,14 @@ export default function OrdersPage() {
                       No orders in this view.
                     </td>
                   </tr>
+                ) : displayOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-espresso/40">
+                      No orders match your search.
+                    </td>
+                  </tr>
                 ) : (
-                  orders.map((o) => {
+                  displayOrders.map((o) => {
                     const isPending = o.payment_status === 'pending_review';
                     const next = NEXT_STATUS[o.status];
                     return (
@@ -251,22 +359,38 @@ export default function OrdersPage() {
                           <div className="font-medium text-espresso">#{o.order_number}</div>
                           <div className="text-xs text-espresso/40 mt-0.5 flex items-center gap-1">
                             <Clock size={10} />
-                            {new Date(o.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {formatOrderTime(o.created_at)}
                           </div>
+                          <span
+                            className={cn(
+                              'inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize',
+                              o.type === 'delivery'
+                                ? 'bg-blue-100 text-blue-600'
+                                : o.type === 'dine-in'
+                                ? 'bg-purple-100 text-purple-600'
+                                : 'bg-amber-100 text-amber-700',
+                            )}
+                          >
+                            {o.type}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-espresso">{o.customer_name}</div>
                           <div className="text-xs text-espresso/40">{o.phone}</div>
                         </td>
-                        <td className="px-4 py-3 text-espresso/70">
-                          <div className="capitalize">
-                            {o.payment_method === 'cbe' ? 'CBE' : o.payment_method ?? '—'}
-                          </div>
+                        <td className="px-4 py-3">
+                          <span
+                            className={cn(
+                              'inline-flex items-center font-medium text-xs px-2 py-0.5 rounded-full',
+                              o.payment_method === 'cbe'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-purple-100 text-purple-700',
+                            )}
+                          >
+                            {o.payment_method === 'cbe' ? 'CBE' : 'Telebirr'}
+                          </span>
                           {o.payment_reference && (
-                            <div className="text-[10px] text-espresso/40 font-mono">
+                            <div className="text-[10px] text-espresso/40 font-mono mt-0.5">
                               {o.payment_reference}
                             </div>
                           )}
@@ -373,6 +497,16 @@ export default function OrdersPage() {
                   <Row label="Address" value={selected.delivery_address} />
                 )}
                 {selected.notes && <Row label="Notes" value={selected.notes} />}
+                <Row
+                  label="Placed"
+                  value={new Date(selected.created_at).toLocaleString([], {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                />
               </dl>
 
               {/* Payment block */}

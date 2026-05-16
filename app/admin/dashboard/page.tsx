@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, Star, UtensilsCrossed, ImageIcon, ShoppingBag } from 'lucide-react';
+import { Calendar, Star, UtensilsCrossed, ImageIcon, ShoppingBag, ShieldCheck } from 'lucide-react';
 import {
   useAdminStats,
   useReservations,
@@ -63,7 +63,7 @@ export default function DashboardPage() {
       <h1 className="font-display text-3xl text-espresso mb-8">Dashboard</h1>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 lg:gap-6 mb-8">
         <StatCard
           icon={<ShoppingBag size={22} className="text-terracotta" />}
           iconBg="bg-terracotta/10"
@@ -94,6 +94,14 @@ export default function DashboardPage() {
           value={stats?.galleryItems ?? 0}
           label="Gallery Items"
         />
+        <Link href="/admin/orders" className="block rounded-2xl ring-2 ring-transparent hover:ring-amber-300 transition-all">
+          <StatCard
+            icon={<ShieldCheck size={22} className="text-amber-600" />}
+            iconBg="bg-amber-100"
+            value={stats?.pendingPayments ?? 0}
+            label="Pending Payments"
+          />
+        </Link>
       </div>
 
       {/* Recent Reservations */}
