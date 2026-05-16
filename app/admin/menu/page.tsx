@@ -14,6 +14,7 @@ import {
 } from '@/lib/queries';
 import { MenuItem, MENU_CATEGORIES } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 /* ─── Schema ─────────────────────────────────────────────────────────────────── */
 const menuSchema = z.object({
@@ -21,7 +22,7 @@ const menuSchema = z.object({
   category:    z.string().min(1, 'Category is required'),
   price:       z.string().refine((v) => !isNaN(Number(v)) && Number(v) >= 0, 'Must be a valid price'),
   description: z.string().optional(),
-  image_url:   z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  image_url:   z.string().nullable().optional(),
   is_fasting:  z.boolean(),
   is_veg:      z.boolean(),
   is_spicy:    z.boolean(),
@@ -181,17 +182,13 @@ function MenuModal({
             />
           </div>
 
-          {/* Image URL */}
-          <div>
-            <label className={labelClass}>Image URL</label>
-            <input
-              type="url"
-              {...register('image_url')}
-              className={inputClass}
-              placeholder="https://..."
-            />
-            {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
-          </div>
+          {/* Image */}
+          <ImageUpload
+            value={watch('image_url') ?? ''}
+            onChange={(url) => setValue('image_url', url ?? '', { shouldDirty: true })}
+            folder="menu"
+            label="Image"
+          />
 
           {/* Sort Order */}
           <div>

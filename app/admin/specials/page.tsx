@@ -14,6 +14,7 @@ import {
 } from '@/lib/queries';
 import { DailySpecial } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 /* ─── Schema ─────────────────────────────────────────────────────────────────── */
 const specialSchema = z.object({
@@ -21,7 +22,7 @@ const specialSchema = z.object({
   description: z.string().optional(),
   price:       z.string().refine((v) => !isNaN(Number(v)) && Number(v) >= 0, 'Must be a valid price'),
   valid_date:  z.string().min(1, 'Date is required'),
-  image_url:   z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  image_url:   z.string().nullable().optional(),
   active:      z.boolean(),
 });
 
@@ -157,12 +158,13 @@ function SpecialModal({
             {errors.valid_date && <p className="text-red-500 text-xs mt-1">{errors.valid_date.message}</p>}
           </div>
 
-          {/* Image URL */}
-          <div>
-            <label className={labelClass}>Image URL</label>
-            <input type="url" {...register('image_url')} className={inputClass} placeholder="https://..." />
-            {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
-          </div>
+          {/* Image */}
+          <ImageUpload
+            value={watch('image_url') ?? ''}
+            onChange={(url) => setValue('image_url', url ?? '', { shouldDirty: true })}
+            folder="specials"
+            label="Image"
+          />
 
           {/* Active */}
           <div className="flex items-center gap-3">

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGallery, useCreateGalleryItem, useDeleteGalleryItem } from '@/lib/queries';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 export default function GalleryPage() {
   const { data: gallery = [], isLoading } = useGallery();
@@ -11,21 +12,26 @@ export default function GalleryPage() {
   const deleteItem = useDeleteGalleryItem();
 
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ url: '', caption: '' });
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.url.trim()) return;
+    if (!imageUrl) {
+      toast.error('Please upload an image first.');
+      return;
+    }
     try {
       await createItem.mutateAsync({
-        url: formData.url.trim(),
-        image_url: formData.url.trim(),
-        caption: formData.caption.trim() || null,
+        url: imageUrl,
+        image_url: imageUrl,
+        caption: caption.trim() || null,
         sort_order: gallery.length + 1,
       });
       toast.success('Image added to gallery');
-      setFormData({ url: '', caption: '' });
+      setImageUrl(null);
+      setCaption('');
       setShowForm(false);
     } catch {
       toast.error('Failed to add image');
@@ -57,42 +63,52 @@ export default function GalleryPage() {
       {/* Add image form */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-lift">
-            <h2 className="font-display text-xl text-espresso mb-6">Add Gallery Image</h2>
+          <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-lift max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-xl text-espresso">Add Gallery Image</h2>
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setImageUrl(null);
+                  setCaption('');
+                }}
+                className="text-espresso/40 hover:text-espresso transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-espresso/70 mb-1">Image URL *</label>
-                <input
-                  type="url"
-                  value={formData.url}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                  placeholder="https://..."
-                  required
-                  className="w-full border border-espresso/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-terracotta"
-                />
-              </div>
+              <ImageUpload
+                value={imageUrl}
+                onChange={setImageUrl}
+                folder="gallery"
+                label="Image *"
+              />
               <div>
                 <label className="block text-sm font-medium text-espresso/70 mb-1">Caption</label>
                 <input
                   type="text"
-                  value={formData.caption}
-                  onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
                   placeholder="Optional caption..."
                   className="w-full border border-espresso/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-terracotta"
                 />
               </div>
-              {formData.url && (
-                <div className="rounded-xl overflow-hidden h-40 bg-cream-2">
-                  <img src={formData.url} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-              )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={createItem.isPending} className="btn btn-primary flex-1 text-sm">
+                <button
+                  type="submit"
+                  disabled={createItem.isPending || !imageUrl}
+                  className="btn btn-primary flex-1 text-sm disabled:opacity-50"
+                >
                   {createItem.isPending ? 'Adding...' : 'Add Image'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); setFormData({ url: '', caption: '' }); }}
+                  onClick={() => {
+                    setShowForm(false);
+                    setImageUrl(null);
+                    setCaption('');
+                  }}
                   className="btn btn-dark text-sm"
                 >
                   Cancel
@@ -114,6 +130,7 @@ export default function GalleryPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {gallery.map((item) => (
             <div key={item.id} className="group relative rounded-xl overflow-hidden bg-cream-2 shadow-card">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.image_url || item.url}
                 alt={item.caption || ''}

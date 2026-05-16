@@ -12,6 +12,7 @@ import {
   Megaphone,
   Settings,
   LogOut,
+  ShoppingBag,
 } from 'lucide-react';
 import { Jebena } from '@/lib/icons';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',    href: '/admin/dashboard',    icon: LayoutDashboard },
+  { label: 'Orders',       href: '/admin/orders',       icon: ShoppingBag },
   { label: 'Menu',         href: '/admin/menu',         icon: UtensilsCrossed },
   { label: 'Gallery',      href: '/admin/gallery',      icon: Image },
   { label: 'Reservations', href: '/admin/reservations', icon: Calendar },

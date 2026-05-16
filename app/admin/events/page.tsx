@@ -14,6 +14,7 @@ import {
 } from '@/lib/queries';
 import { Event } from '@/types';
 import { cn } from '@/lib/utils';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 /* ─── Schema ─────────────────────────────────────────────────────────────────── */
 const eventSchema = z.object({
@@ -21,7 +22,7 @@ const eventSchema = z.object({
   description: z.string().optional(),
   date:        z.string().min(1, 'Date is required'),
   time:        z.string().optional(),
-  image_url:   z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  image_url:   z.string().nullable().optional(),
   active:      z.boolean(),
 });
 
@@ -153,12 +154,13 @@ function EventModal({
             />
           </div>
 
-          {/* Image URL */}
-          <div>
-            <label className={labelClass}>Image URL</label>
-            <input type="url" {...register('image_url')} className={inputClass} placeholder="https://..." />
-            {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
-          </div>
+          {/* Image */}
+          <ImageUpload
+            value={watch('image_url') ?? ''}
+            onChange={(url) => setValue('image_url', url ?? '', { shouldDirty: true })}
+            folder="events"
+            label="Image"
+          />
 
           {/* Active */}
           <div className="flex items-center gap-3">

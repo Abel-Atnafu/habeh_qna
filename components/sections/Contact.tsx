@@ -53,9 +53,9 @@ export default function Contact({ whatsapp }: ContactProps) {
     : '#';
 
   return (
-    <section id="contact" className="py-24 bg-espresso">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-12 items-stretch">
+    <section id="contact" className="py-20 md:py-28 bg-espresso">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
 
           {/* ── Left: Map embed ── */}
           <motion.div
@@ -63,12 +63,12 @@ export default function Contact({ whatsapp }: ContactProps) {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: '-60px' }}
             transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] }}
-            className="min-h-64"
+            className="w-full"
           >
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3940.5!2d38.7469!3d9.0180!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x164b85cef5ab402d%3A0x8467b6b037a24d49!2sAddis%20Ababa!5e0!3m2!1sen!2set!4v1"
-              className="w-full h-64 md:h-full rounded-2xl border-0"
-              style={{ filter: 'sepia(0.3) saturate(0.8) hue-rotate(-10deg)', minHeight: '280px' }}
+              className="w-full h-72 md:h-[420px] rounded-2xl border-0"
+              style={{ filter: 'sepia(0.3) saturate(0.8) hue-rotate(-10deg)' }}
               loading="lazy"
               allowFullScreen
               referrerPolicy="no-referrer-when-downgrade"
