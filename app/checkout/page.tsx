@@ -131,7 +131,7 @@ export default function CheckoutPage() {
       form.set('payment_proof', proofFile);
 
       const res = await fetch('/api/checkout/create', { method: 'POST', body: form });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
       if (!res.ok) throw new Error(body.error || 'Checkout failed');
 
       clear();
